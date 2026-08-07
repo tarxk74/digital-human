@@ -8,15 +8,12 @@ const PORT = process.env.PORT || 4000;
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
-// Hafıza dosyası yolu (Geçmişi ve öğrendiklerini burada tutacak)
 const memoryFilePath = path.join(__dirname, 'memory.json');
 
-// Hafızayı yükleme veya oluşturma fonksiyonu
 function loadMemory() {
     if (fs.existsSync(memoryFilePath)) {
         try {
-            const data = fs.readFileSync(memoryFilePath, 'utf8');
-            return JSON.parse(data);
+            return JSON.parse(fs.readFileSync(memoryFilePath, 'utf8'));
         } catch (e) {
             return {};
         }
@@ -24,43 +21,60 @@ function loadMemory() {
     return {};
 }
 
-// Hafızaya kaydetme fonksiyonu
 function saveMemory(memory) {
     fs.writeFileSync(memoryFilePath, JSON.stringify(memory, null, 2), 'utf8');
 }
 
-app.post('/api/chat', (req, res) => {
+// DuckDuckGo üzerinden otonom araştırma motoru
+async function searchTheWeb(query) {
+    try {
+        const fetch = (await import('node-fetch')).default;
+        const response = await fetch(`https://api.duckduckgo.com/?q=${encodeURIComponent(query)}&format=json&no_html=1&skip_disambig=1`);
+        const data = await response.json();
+        
+        if (data.AbstractText) {
+            return data.AbstractText;
+        } else if (data.RelatedTopics && data.RelatedTopics[0] && data.RelatedTopics[0].Text) {
+            return data.RelatedTopics[0].Text;
+        }
+        return null;
+    } catch (err) {
+        return null;
+    }
+}
+
+app.post('/api/chat', async (req, res) => {
     const rawMessage = req.body.message || "";
     const userMessage = rawMessage.toLowerCase().trim();
     
     let memory = loadMemory();
 
-    // Eğer kullanıcı bir şey öğretiyorsa (Örn: "şunu öğren: ... demektir" veya "öğren: elma bir meyvedir")
-    if (userMessage.startsWith('öğren:') || userMessage.startsWith('şu ne demektir')) {
-        // Öğretme formatı: "öğren: [anahtar] = [değer]"
-        const parts = rawMessage.replace(/^(öğren:|şu ne demektir)\s*/i, '').split('=');
-        if (parts.length === 2) {
-            const key = parts[0].trim().toLowerCase();
-            const val = parts[1].trim();
-            memory[key] = val;
-            saveMemory(memory);
-            return res.json({ reply: `Anladım! Artık "${key}" sorulduğunda bunun "${val}" olduğunu biliyorum.` });
-        } else {
-            return res.json({ reply: "Hatalı format! Örnek kullanım: öğren: yapay zeka = düşünen makinelerdir şeklinde yazmalısın." });
-        }
-    }
-
-    // Hafızada var mı diye kontrol et
+    // 1. Eğer daha önce öğrenmişse hafızadan yapıştırır
     if (memory[userMessage]) {
         return res.json({ reply: memory[userMessage] });
     }
 
-    // Eğer hafızada yoksa, bilmediğini itiraf etsin ve öğrenmek istesin
-    res.json({ 
-        reply: `Bunu henüz bilmiyorum. Bana öğretmek istersen şu formatta yazabilirsin:\n'öğren: ${userMessage} = [buraya cevabını yaz]'` 
-    });
+    // 2. Hafızada yoksa, otonom olarak kendi araştırır!
+    let researchResult = await searchTheWeb(rawMessage);
+
+    if (researchResult) {
+        // Bulduğu bilgiyi kendi hafızasına kaydeder (Artık bir daha aramaz, bilir)
+        memory[userMessage] = researchResult;
+        saveMemory(memory);
+        return res.json({ reply: `Bunu bilmiyordum, hemen araştırdım ve öğrendim: ${researchResult}` });
+    }
+
+    // 3. Hiçbir yerde bulamazsa kendi mantığını yürütür
+    const fallbackAnswers = [
+        `"${rawMessage}" konusunda henüz bir veri bulamadım ama bunu kafama yazdım, araştıracağım.`,
+        `Bu benim için yepyeni bir kavram... Üzerinde düşünüyorum.`,
+        `Bunu ilk defa duyuyorum, ama öğreneceğim.`
+    ];
+    
+    let reply = fallbackAnswers[Math.floor(Math.random() * fallbackAnswers.length)];
+    res.json({ reply: reply });
 });
 
 app.listen(PORT, () => {
-    console.log(`DENİZ ÖĞRENEN BEYİN AKTİF! Port: ${PORT}`);
+    console.log(`DENİZ OTONOM BEYİN AKTİF! Port: ${PORT}`);
 });
