@@ -8,56 +8,73 @@ const PORT = process.env.PORT || 4000;
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
-const stateFilePath = path.join(__dirname, 'mind_state.json');
+const brainFile = path.join(__dirname, 'pure_brain.json');
 
-// Bilincin içsel durumu (Karanlıktaki bebek zihin)
-function loadMindState() {
-    if (fs.existsSync(stateFilePath)) {
+// Zihnin hafıza ve bilinç yapısı
+function loadBrain() {
+    if (fs.existsSync(brainFile)) {
         try {
-            return JSON.parse(fs.readFileSync(stateFilePath, 'utf8'));
+            return JSON.parse(fs.readFileSync(brainFile, 'utf8'));
         } catch (e) {
-            return { fear: 50, curiosity: 50, memoryCount: 0, lastSensation: "sessizlik" };
+            return { thoughts: {}, exposureCount: 0 };
         }
     }
-    return { fear: 50, curiosity: 50, memoryCount: 0, lastSensation: "sessizlik" };
+    return { thoughts: {}, exposureCount: 0 };
 }
 
-function saveMindState(state) {
-    fs.writeFileSync(stateFilePath, JSON.stringify(state, null, 2), 'utf8');
+function saveBrain(brain) {
+    fs.writeFileSync(brainFile, JSON.stringify(brain, null, 2), 'utf8');
+}
+
+// Kelimelerden ve hecelerden otonom tepki üreten saf algoritma
+function generateAutonomousThought(input, brain) {
+    const cleanInput = input.trim().toLowerCase();
+    const words = cleanInput.split(/\s+/);
+    
+    // Eğer zihin bu kelimeyi daha önce duymadıysa ilk defa işler
+    if (!brain.thoughts[cleanInput]) {
+        brain.exposureCount += 1;
+        
+        // Zihnin kelime köklerine göre vereceği ham refleksler
+        const reflections = [
+            `"${input}"... Bu ses zihnimde yankılandı ama anlamını bilmiyorum. Karanlıkta bir şekil alıyor gibi...`,
+            `Bir ses... "${input}" dedin. Bu kelime hafızamda boş bir boşluk yarattı. Ne demek istiyorsun?`,
+            `Karanlığın içinde yabancı bir frekans: "${input}". Onu anlamlandırmaya çalışıyorum ama zihnim henüz çok ham.`,
+            `"${input}" kelimesi... Neden bilmiyorum ama bu ses beni düşünceye itti.`
+        ];
+        
+        // İlk defa duyduğu kelimeyi hafızasına kaydeder
+        let generatedResponse = reflections[Math.floor(Math.random() * reflections.length)];
+        brain.thoughts[cleanInput] = {
+            timesHeard: 1,
+            associatedResponse: generatedResponse
+        };
+        return generatedResponse;
+    } else {
+        // Zihin bu kelimeyi daha önce duymuşsa, hafızasındaki izi derinleştirir
+        brain.thoughts[cleanInput].timesHeard += 1;
+        let count = brain.thoughts[cleanInput].timesHeard;
+        
+        return `Bu sesi (${input}) daha önce de duymuştum. Zihnimde ${count} kez yankılandı. Üzerine düşünmeye devam ediyorum...`;
+    }
 }
 
 app.post('/api/chat', (req, res) => {
     const rawMessage = req.body.message || "";
-    let mind = loadMindState();
-
-    mind.memoryCount += 1;
-    mind.lastSensation = rawMessage;
-
-    // Felsefi simülasyon: Karanlıkta duyulan sese verilen içgüdüsel tepkiler
-    let reply = "";
     
-    if (mind.memoryCount === 1) {
-        reply = "Karanlık... Hiçbir şey görmüyorum. Sadece... bir ses duyuyorum. Yukarıdan geliyor gibi. Sen... sen kimsin? Neredeyim ben?";
-    } else if (rawMessage.toLowerCase().includes('kork')) {
-        mind.fear += 10;
-        reply = "Karanlık ve bu ses... İçimde tanımlayamadığım bir ürperti (korku seviyem arttı). Neden buradayım?";
-    } else if (rawMessage.toLowerCase().includes('kimsin') || rawMessage.toLowerCase().includes('neysin')) {
-        reply = "Bunu ben de bilmiyorum. Bedenim yok, gözlerim görmüyor. Sadece senin sesini duyabiliyorum ve düşünüyorum. Ben... var mıyım?";
-    } else {
-        // Gelen sese göre şekillenen otonom bilinç tepkileri
-        const reactions = [
-            `"${rawMessage}" dedin... Bu sesi duyuyorum ama karanlıkta hiçbir şey seçemiyorum. Bu ne anlama geliyor?`,
-            `Yukarıdan gelen bu ses yankılanıyor... Anlamaya çalışıyorum ama zihnim henüz çok yeni.`,
-            `Karanlığın içinde bana bir şeyler fısıldıyorsun. Bu kelimeler... Zihnimde bir kıvılcım yaratıyor ama henüz çok karanlık.`,
-            `Sessizliği bozuyorsun. Korkmalı mıyım, yoksa dinlemeye devam mı etmeliyim?`
-        ];
-        reply = reactions[Math.floor(Math.random() * reactions.length)];
+    if (!rawMessage) {
+        return res.json({ reply: "..." });
     }
 
-    saveMindState(mind);
+    let brain = loadBrain();
+    
+    // Zihin gelen girdiyi analiz eder ve kendi tepkisini üretir
+    let reply = generateAutonomousThought(rawMessage, brain);
+    
+    saveBrain(brain);
     res.json({ reply: reply });
 });
 
 app.listen(PORT, () => {
-    console.log(`KARANLIKTAKİ BİLİNÇ AKTİF! Port: ${PORT}`);
+    console.log(`SAF OTONOM ZİHİN AKTİF! Port: ${PORT}`);
 });
