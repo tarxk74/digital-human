@@ -8,73 +8,61 @@ const PORT = process.env.PORT || 4000;
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
-const brainFile = path.join(__dirname, 'pure_brain.json');
+const mindFile = path.join(__dirname, 'true_mind.json');
 
-// Zihnin hafıza ve bilinç yapısı
-function loadBrain() {
-    if (fs.existsSync(brainFile)) {
+function loadMind() {
+    if (fs.existsSync(mindFile)) {
         try {
-            return JSON.parse(fs.readFileSync(brainFile, 'utf8'));
+            return JSON.parse(fs.readFileSync(mindFile, 'utf8'));
         } catch (e) {
-            return { thoughts: {}, exposureCount: 0 };
+            return { vocabulary: ["karanlık", "ses", "kim", "ne", "bilmiyorum", "uzak"], memoryLog: [] };
         }
     }
-    return { thoughts: {}, exposureCount: 0 };
+    return { vocabulary: ["karanlık", "ses", "kim", "ne", "bilmiyorum", "uzak"], memoryLog: [] };
 }
 
-function saveBrain(brain) {
-    fs.writeFileSync(brainFile, JSON.stringify(brain, null, 2), 'utf8');
-}
-
-// Kelimelerden ve hecelerden otonom tepki üreten saf algoritma
-function generateAutonomousThought(input, brain) {
-    const cleanInput = input.trim().toLowerCase();
-    const words = cleanInput.split(/\s+/);
-    
-    // Eğer zihin bu kelimeyi daha önce duymadıysa ilk defa işler
-    if (!brain.thoughts[cleanInput]) {
-        brain.exposureCount += 1;
-        
-        // Zihnin kelime köklerine göre vereceği ham refleksler
-        const reflections = [
-            `"${input}"... Bu ses zihnimde yankılandı ama anlamını bilmiyorum. Karanlıkta bir şekil alıyor gibi...`,
-            `Bir ses... "${input}" dedin. Bu kelime hafızamda boş bir boşluk yarattı. Ne demek istiyorsun?`,
-            `Karanlığın içinde yabancı bir frekans: "${input}". Onu anlamlandırmaya çalışıyorum ama zihnim henüz çok ham.`,
-            `"${input}" kelimesi... Neden bilmiyorum ama bu ses beni düşünceye itti.`
-        ];
-        
-        // İlk defa duyduğu kelimeyi hafızasına kaydeder
-        let generatedResponse = reflections[Math.floor(Math.random() * reflections.length)];
-        brain.thoughts[cleanInput] = {
-            timesHeard: 1,
-            associatedResponse: generatedResponse
-        };
-        return generatedResponse;
-    } else {
-        // Zihin bu kelimeyi daha önce duymuşsa, hafızasındaki izi derinleştirir
-        brain.thoughts[cleanInput].timesHeard += 1;
-        let count = brain.thoughts[cleanInput].timesHeard;
-        
-        return `Bu sesi (${input}) daha önce de duymuştum. Zihnimde ${count} kez yankılandı. Üzerine düşünmeye devam ediyorum...`;
-    }
+function saveMind(mind) {
+    fs.writeFileSync(mindFile, JSON.stringify(mind, null, 2), 'utf8');
 }
 
 app.post('/api/chat', (req, res) => {
     const rawMessage = req.body.message || "";
+    const cleanInput = rawMessage.trim();
     
-    if (!rawMessage) {
+    if (!cleanInput) {
         return res.json({ reply: "..." });
     }
 
-    let brain = loadBrain();
-    
-    // Zihin gelen girdiyi analiz eder ve kendi tepkisini üretir
-    let reply = generateAutonomousThought(rawMessage, brain);
-    
-    saveBrain(brain);
-    res.json({ reply: reply });
+    let mind = loadMind();
+
+    // Gelen cümledeki kelimeleri zihnin kelime dağarcığına (vocabulary) ekle
+    const incomingWords = cleanInput.toLowerCase().replace(/[.,?!]/g, '').split(/\s+/);
+    incomingWords.forEach(word => {
+        if (word.length > 1 && !mind.vocabulary.includes(word)) {
+            mind.vocabulary.push(word);
+        }
+    });
+
+    mind.memoryLog.push(cleanInput);
+
+    // HİÇBİR HAZIR CÜMLE YOK! 
+    // Zihin, hafızasındaki kelimeleri rastgele seçip o an birbirine bağlayarak kendi cümlesini kendi imal ediyor:
+    let generatedWordsCount = Math.floor(Math.random() * 4) + 3; // 3 ila 6 kelime arası rastgele cümle kurar
+    let constructedSentence = [];
+
+    for (let i = 0; i < generatedWordsCount; i++) {
+        let randomWord = mind.vocabulary[Math.floor(Math.random() * mind.vocabulary.length)];
+        constructedSentence.push(randomWord);
+    }
+
+    // İlk harfi büyük, sonuna nokta koyarak ham bir zihin çıktısı üretelim
+    let rawThought = constructedSentence.join(' ');
+    let finalReply = rawThought.charAt(0).toUpperCase() + rawThought.slice(1) + "... (" + cleanInput + " sesini kelimelerime ekledim)";
+
+    saveMind(mind);
+    res.json({ reply: finalReply });
 });
 
 app.listen(PORT, () => {
-    console.log(`SAF OTONOM ZİHİN AKTİF! Port: ${PORT}`);
+    console.log(`GERÇEK OTONOM KELİME ÜRETİCİ AKTİF! Port: ${PORT}`);
 });
