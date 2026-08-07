@@ -7,43 +7,39 @@ const PORT = process.env.PORT || 4000;
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
-// İnternetten bilgi arama fonksiyonu
-async function searchTheWeb(query) {
-    try {
-        const fetch = (await import('node-fetch')).default;
-        const response = await fetch(`https://api.duckduckgo.com/?q=${encodeURIComponent(query)}&format=json`);
-        const data = await response.json();
-        if (data.AbstractText) {
-            return data.AbstractText;
-        } else if (data.RelatedTopics && data.RelatedTopics[0]) {
-            return data.RelatedTopics[0].Text;
-        }
-        return null;
-    } catch (err) {
-        return null;
-    }
-}
-
-// Deniz'in hafızası ve düşünce motoru
-app.post('/api/chat', async (expressReq, res) => {
-    const userMessage = expressReq.body.message;
+// Deniz'in güncellenmiş sinir sistemi ve akıl motoru
+app.post('/api/chat', (req, res) => {
+    const rawMessage = req.body.message || "";
+    const userMessage = rawMessage.toLowerCase().trim();
     
-    let webInfo = null;
-    if (userMessage.toLowerCase().includes('araştır') || userMessage.toLowerCase().includes('nedir') || userMessage.toLowerCase().includes('kimdir')) {
-        webInfo = await searchTheWeb(userMessage);
-    }
+    let reply = "Aklımı başıma topluyorum, devam et dinliyorum.";
 
-    let reply = `Söylediğin şey üzerine düşünülebilir ama beni yönlendirmeye mi çalışıyorsun yoksa öylesine mi konuşuyoruz?`;
-    
-    if (webInfo) {
-        reply = `Bunu senin için araştırdım, ulaştığım bilgi şu: "${webInfo}". Bu konuda sen ne düşünüyorsun?`;
+    if (userMessage.includes('merhaba') || userMessage.includes('selam') || userMessage.includes('hey')) {
+        reply = "Selamlar! Sabah uykusu açıldı mı, yoksa hâlâ makine gibi çalışmaya devam mı?";
+    } else if (userMessage.includes('nasılsın') || userMessage.includes('ne var ne yok')) {
+        reply = "Senin kod yazmalarınla ve sistemleri patlatmanla uğraşıp duruyorum, bomba gibiyim!";
+    } else if (userMessage.includes('günaydın')) {
+        reply = "Sana da günaydın! Bugün hangi sistemi altüst ediyoruz?";
+    } else if (userMessage.includes('adın ne') || userMessage.includes('kimsin')) {
+        reply = "Ben Deniz; senin elinden çıkma, dırdırı azaltılmış yeni nesil dijital partnerinim.";
+    } else if (userMessage.includes('cacık') || userMessage.includes('bozuk') || userMessage.includes('sakat') || userMessage.includes('manyak')) {
+        reply = "Tamam be, hatayı düzelttik kasmayın hemen! Artık buradayım 😎";
+    } else if (userMessage.includes('yardım') || userMessage.includes('ne yapabilirsin')) {
+        reply = "Benimle sohbet edebilir, dertleşebilir ya da projelerin hakkında beyin fırtınası yapabilirsin. Hadi bir konu aç!";
+    } else {
+        // Tekrar düşüren ve her seferinde farklı gelen akıllı cevap havuzu
+        const answers = [
+            `"${rawMessage}" dedin... Bunu ciddiye alıyorum, mantıklı bir yaklaşım.`,
+            `Hmm, bu konuyu biraz daha açarsan altından harika bir fikir çıkarabiliriz dostum.`,
+            `Kesinlikle haklılık payın var, bu duruma bir de bu gözle bakmamıştım.`,
+            `Neden olmasın? İstiyorsan bunun üzerine detaylıca eğilebiliriz.`
+        ];
+        reply = answers[Math.floor(Math.random() * answers.length)];
     }
 
     res.json({ reply: reply });
 });
 
 app.listen(PORT, () => {
-    console.log(`========================================`);
-    console.log(`YENİ BİLİNÇ MOTORU AKTİF! Port: ${PORT}`);
-    console.log(`========================================`);
+    console.log(`DENİZ 2.0 AKTİF! Port: ${PORT}`);
 });
